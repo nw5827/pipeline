@@ -1,19 +1,20 @@
 import numpy as np
 import os
-import six.moves.urllib as urllib
 import sys
-import tarfile
 import tensorflow as tf
-import zipfile
 
 from distutils.version import StrictVersion
-from collections import defaultdict
-from io import StringIO
 from matplotlib import pyplot as plt
 from PIL import Image
 
+#import six.moves.urllib as urllib
+#import tarfile
+#import zipfile
+#from collections import defaultdict
+#from io import StringIO
+
 # This is needed since the notebook is stored in the object_detection folder.
-sys.path.append("..")
+sys.path.append("/home/nigel/models/research")
 from object_detection.utils import ops as utils_ops
 
 if StrictVersion(tf.__version__) < StrictVersion('1.12.0'):
@@ -21,19 +22,20 @@ if StrictVersion(tf.__version__) < StrictVersion('1.12.0'):
 
 #%matplotlib inline
 
+sys.path.append("/home/nigel/models/research/object_detection")
 from utils import label_map_util
 from utils import visualization_utils as vis_util
 
 # # What model to download.
-# MODEL_NAME = 'ssd_mobilenet_v1_coco_2017_11_17'
+MODEL_NAME = '/home/nigel/ssd_mobilenet_v1_coco_2018_01_28_tf1.13.1'
 # MODEL_FILE = MODEL_NAME + '.tar.gz'
 # DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
 
 # # Path to frozen detection graph. This is the actual model that is used for the object detection.
-# PATH_TO_FROZEN_GRAPH = MODEL_NAME + '/frozen_inference_graph.pb'
+PATH_TO_FROZEN_GRAPH = MODEL_NAME + '/frozen_inference_graph.pb'
 
 # # List of the strings that is used to add correct label for each box.
-# PATH_TO_LABELS = os.path.join('data', 'mscoco_label_map.pbtxt')
+PATH_TO_LABELS = os.path.join('data', 'mscoco_label_map.pbtxt')
 
 # opener = urllib.request.URLopener()
 # opener.retrieve(DOWNLOAD_BASE + MODEL_FILE, MODEL_FILE)
@@ -50,7 +52,6 @@ with detection_graph.as_default():
     serialized_graph = fid.read()
     od_graph_def.ParseFromString(serialized_graph)
     tf.import_graph_def(od_graph_def, name='')
-
 
 category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)
 
@@ -124,7 +125,12 @@ for image_path in TEST_IMAGE_PATHS:
   # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
   image_np_expanded = np.expand_dims(image_np, axis=0)
   # Actual detection.
+  print('inference for image:{}, shape:{}'.format(image_path, image_np_expanded.shape))
   output_dict = run_inference_for_single_image(image_np_expanded, detection_graph)
+  print('got output_dict:{}'.format(output_dict.keys()))
+  print(output_dict['detection_boxes'])
+  print(output_dict['detection_classes'])
+  print(output_dict['detection_scores'])
   # Visualization of the results of a detection.
   vis_util.visualize_boxes_and_labels_on_image_array(
       image_np,
