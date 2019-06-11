@@ -1,10 +1,12 @@
 import numpy as np
 import os
 import sys
+import time
 import tensorflow as tf
+import matplotlib
+import matplotlib.pyplot as plt
 
 from distutils.version import StrictVersion
-from matplotlib import pyplot as plt
 from PIL import Image
 
 #import six.moves.urllib as urllib
@@ -141,6 +143,8 @@ for image_path in TEST_IMAGE_PATHS:
       instance_masks=output_dict.get('detection_masks'),
       use_normalized_coordinates=True,
       line_thickness=8)
-  plt.figure(figsize=IMAGE_SIZE)
+  matplotlib.use('GTK3Agg')
+  fig = plt.figure(figsize=IMAGE_SIZE)
   plt.imshow(image_np)
+  plt.show(fig)
 
