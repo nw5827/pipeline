@@ -38,6 +38,11 @@ TEST_IMAGE_PATHS = [ os.path.join(PATH_TO_TEST_IMAGES_DIR,
 # Size, in inches, of the output images.
 IMAGE_SIZE = (12, 8)
 
+config = tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction = 0.5))
+#config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
+#config.gpu_options.per_process_gpu_memory_fraction = 0.5
+#config.gpu_options.allow_growth = True
+
 def load_image_into_numpy_array(image):
   (im_width, im_height) = image.size
   return np.array(image.getdata()).reshape(
@@ -83,7 +88,7 @@ def trt_optimize_graph(graph, max_batch = 1):
     print('pre:outputs:{}. nodes:{}'.format(output_nodes, len(graph_def.node)))
     graph_def = trt.create_inference_graph(graph_def,
                                            output_nodes,
-                                           max_workspace_size_bytes = 1<<32,
+                                           max_workspace_size_bytes = 2*1024*1024,
                                            max_batch_size = max_batch,
                                            precision_mode = 'FP16',
                                            is_dynamic_op = True,
@@ -131,9 +136,9 @@ def main(n_iters=1000, batch=8, tile=2, trt=True):
 
   with graph.as_default():
     image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
-    #try to bypass pre-processing
+    #try to bypass image pre-processing
     #image_tensor = tf.get_default_graph().get_tensor_by_name('FeatureExtractor/MobilenetV1/MobilenetV1/Conv2d_0/Conv2D:0')
-    with tf.Session() as sess:
+    with tf.Session(config=config) as sess:
       for image in images:
         start_time = time.time()
         for i in range(n_iters):
@@ -179,4 +184,4 @@ def main(n_iters=1000, batch=8, tile=2, trt=True):
     print(output_dict['raw_detection_boxes'][0])
     print(output_dict['raw_detection_scores'][0])
 
-main(n_iters=1000, batch=16, tile=2)
+main(n_iters=1000, batch=16, tile=2, trt=True)
