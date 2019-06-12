@@ -25,7 +25,7 @@ MODEL_NAME = '/home/nigel/ssd_mobilenet_v1_coco_2018_01_28_tf1.13.1'
 PATH_TO_TEST_IMAGES_DIR = 'test_images'
 PATH_TO_LABELS = os.path.join('data', 'mscoco_label_map.pbtxt')
 
-# # Path to frozen detection graph. This is the actual model that is used for the object detection.
+# Path to frozen detection graph. This is the actual model that is used for the object detection.
 PATH_TO_FROZEN_GRAPH = MODEL_NAME + '/frozen_inference_graph.pb'
 
 # For the sake of simplicity we will use only 2 images:
@@ -67,8 +67,8 @@ def load_detection_graph(path):
       tf.import_graph_def(graph_def, name='')
 
   for op in graph.get_operations():
-    #if op.name.find('Conv2d_0') > 0:
-    print('xprev:{}'.format(op.name))
+    if op.name.find('raw_') > -1:
+      print('xprev:{}'.format(op.name))
 
   return graph
 
@@ -106,10 +106,11 @@ category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABE
                                                                     use_display_name=True)
 
 
-def get_image_batches(tile=5, batch=1):
+def get_image_batches(tile=5, batch=1, size=None):
   images = []
   for image_path in TEST_IMAGE_PATHS:
     image = Image.open(image_path)
+    image = image.resize(size) if size is not None else image
     image_np = load_image_into_numpy_array(image)
     image_np_expanded = np.expand_dims(image_np, axis=0)
     print('test image:{}, shape:{}'.format(image_path, image_np_expanded.shape))
@@ -128,7 +129,7 @@ def main(n_iters=1000, batch = 8, tile = 5, trt=True):
 
   tensor_dict = get_graph_outputs(graph)
 
-  images = get_image_batches(batch = batch, tile = tile)
+  images = get_image_batches(size=(300,300), batch = batch, tile = tile)
 
   with graph.as_default():
     image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
