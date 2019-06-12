@@ -56,7 +56,6 @@ def get_graph_outputs(graph):
   return tensor_dict
 
 def load_detection_graph(path):
-
   graph     = tf.Graph()
   graph_def = tf.GraphDef()
 
@@ -73,7 +72,6 @@ def load_detection_graph(path):
   return graph
 
 def trt_optimize_graph(graph, max_batch = 1):
-
   graph_def = graph.as_graph_def()
 
   tensor_dict  = get_graph_outputs(graph)
@@ -106,7 +104,7 @@ category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABE
                                                                     use_display_name=True)
 
 
-def get_image_batches(tile=5, batch=1, size=None):
+def get_image_batches(tile=2, batch=1, size=None):
   images = []
   for image_path in TEST_IMAGE_PATHS:
     image = Image.open(image_path)
@@ -116,20 +114,20 @@ def get_image_batches(tile=5, batch=1, size=None):
     print('test image:{}, shape:{}'.format(image_path, image_np_expanded.shape))
     images.append(np.tile(image_np_expanded, (batch, 1, 1, 1)))
 
-  images += images * tile
+  images = images * tile
+
+  print('len(images):{}'.format(len(images)))
 
   return images
 
-def main(n_iters=1000, batch = 8, tile = 5, trt=True):
-
+def main(n_iters=1000, batch=8, tile=2, trt=True):
   graph = load_detection_graph(PATH_TO_FROZEN_GRAPH)
 
-  if trt:
-    graph = trt_optimize_graph(graph)
+  if trt: graph = trt_optimize_graph(graph)
 
   tensor_dict = get_graph_outputs(graph)
 
-  images = get_image_batches(size=(300,300), batch = batch, tile = tile)
+  images = get_image_batches(size=(300,300), batch=batch, tile=tile)
 
   with graph.as_default():
     image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
@@ -154,6 +152,7 @@ def main(n_iters=1000, batch = 8, tile = 5, trt=True):
 
         print(output_dict['raw_detection_boxes'][0])
         print(output_dict['raw_detection_scores'][0,:,(1,18,38)])
+
         ## all outputs are float32 numpy arrays, so convert types as appropriate
         #output_dict[   'num_detections'] = int(output_dict['num_detections'][0])
         #output_dict['detection_classes'] = output_dict['detection_classes'][0].astype(np.int64)
@@ -180,4 +179,4 @@ def main(n_iters=1000, batch = 8, tile = 5, trt=True):
     print(output_dict['raw_detection_boxes'][0])
     print(output_dict['raw_detection_scores'][0])
 
-main(n_iters=1000)
+main(n_iters=1000, batch=16, tile=2)
