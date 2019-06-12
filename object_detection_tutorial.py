@@ -93,7 +93,8 @@ def trt_optimize_graph(graph, max_batch = 1):
                                            precision_mode = 'FP16',
                                            is_dynamic_op = True,
                                            minimum_segment_size = 15,
-                                           maximum_cached_engines = 2)
+                                           maximum_cached_engines = 2,
+                                           session_config = config)
 
     print('post:outputs:{}. nodes:{}'.format(output_nodes, len(graph_def.node)))
     tf.import_graph_def(graph_def, name='')
