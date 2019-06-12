@@ -87,7 +87,7 @@ def trt_optimize_graph(graph, max_batch = 1):
                                            output_nodes,
                                            max_workspace_size_bytes = 1<<32,
                                            max_batch_size = max_batch,
-                                           precision_mode = 'FP32',
+                                           precision_mode = 'FP16',
                                            is_dynamic_op = True,
                                            minimum_segment_size = 15,
                                            maximum_cached_engines = 2)
