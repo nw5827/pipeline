@@ -141,10 +141,19 @@ def main(n_iters=1000, batch = 8, tile = 5, trt=True):
         for i in range(n_iters):
           output_dict = sess.run(tensor_dict, feed_dict={image_tensor: image})
         elapsed = time.time()-start_time
-        print('batch[{}], [{:.1f}s] i.e. {:.3f} images per sec:got output_dict:{}'.format(image.shape[0],
+        print('batch[{}], [{:.1f}s] i.e. {:.3f} images per sec:got output_dict:{}, person/dog/kite > 0.5 {}/{}/{}, shapes b/s {}/{}'.format(image.shape[0],
                                                                                           elapsed,
                                                                                           n_iters*image.shape[0]/elapsed,
-                                                                                          output_dict.keys()))
+                                                                                          output_dict.keys(),
+                                                                                          np.sum(output_dict['raw_detection_scores'][:,:, 1] > 0.5, axis=1),
+                                                                                          np.sum(output_dict['raw_detection_scores'][:,:,18] > 0.5, axis=1),
+                                                                                          np.sum(output_dict['raw_detection_scores'][:,:,38] > 0.5, axis=1),
+                                                                                          output_dict['raw_detection_boxes' ].shape,
+                                                                                          output_dict['raw_detection_scores'].shape,
+        ))
+
+        print(output_dict['raw_detection_boxes'][0])
+        print(output_dict['raw_detection_scores'][0,:,(1,18,38)])
         ## all outputs are float32 numpy arrays, so convert types as appropriate
         #output_dict[   'num_detections'] = int(output_dict['num_detections'][0])
         #output_dict['detection_classes'] = output_dict['detection_classes'][0].astype(np.int64)
@@ -167,5 +176,8 @@ def main(n_iters=1000, batch = 8, tile = 5, trt=True):
         # fig = plt.figure(figsize=IMAGE_SIZE)
         # plt.imshow(image_np)
         # plt.show(fig)
+
+    print(output_dict['raw_detection_boxes'][0])
+    print(output_dict['raw_detection_scores'][0])
 
 main(n_iters=1000)
