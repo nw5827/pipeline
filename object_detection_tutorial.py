@@ -49,7 +49,7 @@ def get_graph_outputs(graph):
     # Get handles to input and output tensors
     ops = tf.get_default_graph().get_operations()
     all_tensor_names = {output.name for op in ops for output in op.outputs}
-    for key in ['raw_detection_boxes', 'raw_detection_scores']: #, 'num_detections'] #, 'detection_classes', 'detection_masks']:
+    for key in ['raw_detection_boxes', 'raw_detection_scores']: #, 'num_detections', 'detection_classes', 'detection_masks']:
       tensor_name = key + ':0'
       if tensor_name in all_tensor_names:
         tensor_dict[key] = tf.get_default_graph().get_tensor_by_name(tensor_name)
