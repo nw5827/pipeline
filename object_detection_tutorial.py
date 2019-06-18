@@ -200,4 +200,4 @@ def main(n_iters=1000, batch=8, tile=2, trt=True):
     print(output_dict['raw_detection_boxes'][0])
     print(output_dict['raw_detection_scores'][0])
 
-main(n_iters=1000, batch=16, tile=2, trt=True)
+main(n_iters=1000, batch=32, tile=2, trt=True)
