@@ -26,6 +26,8 @@ import tensorflow.contrib.tensorrt as trt
 from distutils.version import StrictVersion
 from PIL import Image
 
+BASE_MODEL_NAME = 'ssd_mobilenet_v1_coco_2018_01_28'
+
 root_path = os.getenv('HOME')
 
 # This is needed since the notebook is stored in the object_detection folder.
@@ -39,12 +41,8 @@ sys.path.append(root_path + "/models/research/object_detection")
 from utils import label_map_util
 from utils import visualization_utils as vis_util
 
-MODEL_NAME = root_path + '/ssd_mobilenet_v1_coco_2018_01_28_tf1.13.1'
 PATH_TO_TEST_IMAGES_DIR = 'test_images'
 PATH_TO_LABELS = os.path.join('data', 'mscoco_label_map.pbtxt')
-
-# Path to frozen detection graph. This is the actual model that is used for the object detection.
-PATH_TO_FROZEN_GRAPH = MODEL_NAME + '/frozen_inference_graph.pb'
 
 # For the sake of simplicity we will use only 2 images:
 # image1.jpg
@@ -52,14 +50,6 @@ PATH_TO_FROZEN_GRAPH = MODEL_NAME + '/frozen_inference_graph.pb'
 # If you want to test the code with your images, just add path to the images to the TEST_IMAGE_PATHS.
 TEST_IMAGE_PATHS = [ os.path.join(PATH_TO_TEST_IMAGES_DIR,
                                   'image{}.jpg'.format(i)) for i in range(1, 3) ]
-
-# Size, in inches, of the output images.
-IMAGE_SIZE = (12, 8)
-
-config = tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction = 0.5))
-#config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
-#config.gpu_options.per_process_gpu_memory_fraction = 0.5
-#config.gpu_options.allow_growth = True
 
 def load_image_into_numpy_array(image):
   (im_width, im_height) = image.size
@@ -94,7 +84,7 @@ def load_detection_graph(path):
 
   return graph
 
-def trt_optimize_graph(graph, max_batch = 1):
+def trt_optimize_graph(graph, max_batch, dynamic):
   graph_def = graph.as_graph_def()
 
   tensor_dict  = get_graph_outputs(graph)
@@ -104,22 +94,18 @@ def trt_optimize_graph(graph, max_batch = 1):
 
   with new_graph.as_default():
     print('pre:outputs:{}. nodes:{}'.format(output_nodes, len(graph_def.node)))
+    #this uses the default session if one is available
     graph_def = trt.create_inference_graph(graph_def,
                                            output_nodes,
                                            max_workspace_size_bytes = 2*1024*1024,
                                            max_batch_size = max_batch,
                                            precision_mode = 'FP16',
-                                           is_dynamic_op = True,
+                                           is_dynamic_op = dynamic,
                                            minimum_segment_size = 15,
-                                           maximum_cached_engines = 2,
-                                           session_config = config)
+                                           maximum_cached_engines = 2)
 
     print('post:outputs:{}. nodes:{}'.format(output_nodes, len(graph_def.node)))
     tf.import_graph_def(graph_def, name='')
-
-  for op in new_graph.get_operations():
-    if op.name.find('Conv2d_0') > 0:
-      print('trt:{}'.format(op.name))
 
   return new_graph
 
@@ -127,16 +113,15 @@ def trt_optimize_graph(graph, max_batch = 1):
 category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS,
                                                                     use_display_name=True)
 
-
-def get_image_batches(tile=2, batch=1, size=None):
+def get_image_batches(size, batch, tile):
   images = []
   for image_path in TEST_IMAGE_PATHS:
     image = Image.open(image_path)
     image = image.resize(size) if size is not None else image
     image_np = load_image_into_numpy_array(image)
     image_np_expanded = np.expand_dims(image_np, axis=0)
-    print('test image:{}, shape:{}'.format(image_path, image_np_expanded.shape))
     images.append(np.tile(image_np_expanded, (batch, 1, 1, 1)))
+    print('test image:{}, shape:{}'.format(image_path, images[-1].shape))
 
   images = images * tile
 
@@ -144,14 +129,32 @@ def get_image_batches(tile=2, batch=1, size=None):
 
   return images
 
-def main(n_iters=1000, batch=8, tile=2, trt=True):
-  graph = load_detection_graph(PATH_TO_FROZEN_GRAPH)
+def path_to_frozen_graph(batch, is_dynamic):
+  MODEL_NAME = '{}/{}_tf1.13.1'.format(root_path, BASE_MODEL_NAME)
+  if not is_dynamic: MODEL_NAME += '_fixed_{}'.format(batch)
+  return MODEL_NAME + '/frozen_inference_graph.pb'
 
-  if trt: graph = trt_optimize_graph(graph)
-
-  tensor_dict = get_graph_outputs(graph)
+def main(n_iters, batch, tile, trt, dynamic, fraction):
 
   images = get_image_batches(size=(300,300), batch=batch, tile=tile)
+
+  model_path = path_to_frozen_graph(batch, dynamic)
+
+  print('loading frozen graph from:{}'.format(model_path))
+
+  graph  = load_detection_graph(model_path)
+
+  gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=fraction)
+  config      = tf.ConfigProto(gpu_options=gpu_options)
+
+  if trt:
+    with tf.Session(config=config) as sess:
+      with sess.as_default():
+        #we need to create a session so that we can control and deallocate the resources
+        # used to create the optimized inference graph
+        graph = trt_optimize_graph(graph, max_batch=batch, dynamic=dynamic)
+
+  tensor_dict = get_graph_outputs(graph)
 
   with graph.as_default():
     image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
@@ -163,44 +166,22 @@ def main(n_iters=1000, batch=8, tile=2, trt=True):
         for i in range(n_iters):
           output_dict = sess.run(tensor_dict, feed_dict={image_tensor: image})
         elapsed = time.time()-start_time
-        print('batch[{}], [{:.1f}s] i.e. {:.3f} images per sec:got output_dict:{}, person/dog/kite > 0.5 {}/{}/{}, shapes b/s {}/{}'.format(image.shape[0],
-                                                                                          elapsed,
-                                                                                          n_iters*image.shape[0]/elapsed,
-                                                                                          output_dict.keys(),
-                                                                                          np.sum(output_dict['raw_detection_scores'][:,:, 1] > 0.5, axis=1),
-                                                                                          np.sum(output_dict['raw_detection_scores'][:,:,18] > 0.5, axis=1),
-                                                                                          np.sum(output_dict['raw_detection_scores'][:,:,38] > 0.5, axis=1),
-                                                                                          output_dict['raw_detection_boxes' ].shape,
-                                                                                          output_dict['raw_detection_scores'].shape,
+        print('batch[{}], [{:.1f}s] i.e. {:.3f} images per sec:got output_dict:{}, person/dog/kite > 0.5 {}/{}/{}, shapes b/s {}/{}'.format(
+          image.shape[0],
+          elapsed,
+          n_iters*image.shape[0]/elapsed,
+          output_dict.keys(),
+          np.sum(output_dict['raw_detection_scores'][:,:, 1] > 0.5, axis=1),
+          np.sum(output_dict['raw_detection_scores'][:,:,18] > 0.5, axis=1),
+          np.sum(output_dict['raw_detection_scores'][:,:,38] > 0.5, axis=1),
+          output_dict['raw_detection_boxes' ].shape,
+          output_dict['raw_detection_scores'].shape,
         ))
 
         print(output_dict['raw_detection_boxes'][0])
         print(output_dict['raw_detection_scores'][0,:,(1,18,38)])
 
-        ## all outputs are float32 numpy arrays, so convert types as appropriate
-        #output_dict[   'num_detections'] = int(output_dict['num_detections'][0])
-        #output_dict['detection_classes'] = output_dict['detection_classes'][0].astype(np.int64)
-        #output_dict[  'detection_boxes'] = output_dict['detection_boxes'][0]
-        #output_dict[ 'detection_scores'] = output_dict['detection_scores'][0]
-        #if 'detection_masks' in output_dict:
-        #  output_dict['detection_masks'] = output_dict['detection_masks'][0]
-
-        # Visualization of the results of a detection.
-        # vis_util.visualize_boxes_and_labels_on_image_array(
-        #   image_np,
-        #   output_dict['detection_boxes'],
-        #   output_dict['detection_classes'],
-        #   output_dict['detection_scores'],
-        #   category_index,
-        #   instance_masks=output_dict.get('detection_masks'),
-        #   use_normalized_coordinates=True,
-        #   line_thickness=8)
-        # matplotlib.use('GTK3Agg')
-        # fig = plt.figure(figsize=IMAGE_SIZE)
-        # plt.imshow(image_np)
-        # plt.show(fig)
-
-    print(output_dict['raw_detection_boxes'][0])
+    print(output_dict[ 'raw_detection_boxes'][0])
     print(output_dict['raw_detection_scores'][0])
 
-main(n_iters=1000, batch=32, tile=2, trt=True)
+main(n_iters=1000, batch=8, tile=2, trt=True, dynamic=False, fraction=0.33)
