@@ -8,6 +8,9 @@
 # 3a check that the tutorial runs
 # 4 pull down the ssd_mobilenet_v1_coco model from the model zoo and extract into your home dir
 # 5 use the model exporter to re-export the model for tf v1.13.1 appending _tf1.13.1 to the output dir name
+# 5a use the --input_shape=<shape> e.g. 8,300,300,3 model exporter to re-export the model for tf v1.13.1 with a set of fixed batch sizes
+#    appending _tf1.13.1_fixed_<batch_size> to each output dir name e.g. ssd_mobilenet_v1_coco_2018_01_28_tf1.13.1_fixed_8
+#    When the batch size is fixed dynamic can be false and the performance of the optimized graph is improved significantly.
 # 6 run from models/research/object_detection/
 #####################################################################################################
 
