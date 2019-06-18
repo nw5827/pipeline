@@ -1,3 +1,16 @@
+#####################################################################################################
+# This is adapted from the object detection ipython notebook
+#  that comes in tensorflow/models/research/object_detection
+# To use.
+# 1 clone tensorflow/models into your home dir
+# 2 install jupyter notebook and load the object detection tut in models/research/object_detection
+# 3 follow the install instructions in the tut
+# 3a check that the tutorial runs
+# 4 pull down the ssd_mobilenet_v1_coco model from the model zoo and extract into your home dir
+# 5 use the model exporter to re-export the model for tf v1.13.1 appending _tf1.13.1 to the output dir name
+# 6 run from models/research/object_detection/
+#####################################################################################################
+
 import numpy as np
 import os
 import sys
