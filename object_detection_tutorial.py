@@ -23,18 +23,20 @@ import tensorflow.contrib.tensorrt as trt
 from distutils.version import StrictVersion
 from PIL import Image
 
+root_path = os.getenv('HOME')
+
 # This is needed since the notebook is stored in the object_detection folder.
-sys.path.append("/home/nigel/models/research")
+sys.path.append(root_path + "/models/research")
 from object_detection.utils import ops as utils_ops
 
 if StrictVersion(tf.__version__) < StrictVersion('1.12.0'):
   raise ImportError('Please upgrade your TensorFlow installation to v1.12.*.')
 
-sys.path.append("/home/nigel/models/research/object_detection")
+sys.path.append(root_path + "/models/research/object_detection")
 from utils import label_map_util
 from utils import visualization_utils as vis_util
 
-MODEL_NAME = '/home/nigel/ssd_mobilenet_v1_coco_2018_01_28_tf1.13.1'
+MODEL_NAME = root_path + '/ssd_mobilenet_v1_coco_2018_01_28_tf1.13.1'
 PATH_TO_TEST_IMAGES_DIR = 'test_images'
 PATH_TO_LABELS = os.path.join('data', 'mscoco_label_map.pbtxt')
 
